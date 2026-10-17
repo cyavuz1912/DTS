@@ -3,6 +3,8 @@ import { User, Personnel, Device, ReturnRequest, SystemSettings, TransferPackage
 export const INITIAL_USERS: User[] = [
   {
     id: 'usr-depo',
+    username: 'depo',
+    password: '123456',
     name: 'Mehmet Demir',
     email: 'depo@depopro.com',
     role: 'DEPO',
@@ -13,7 +15,22 @@ export const INITIAL_USERS: User[] = [
     status: 'AKTIF',
   },
   {
+    id: 'usr-teknik',
+    username: 'teknik',
+    password: '123456',
+    name: 'Emre Yıldız',
+    email: 'teknik@depopro.com',
+    role: 'TEKNIK',
+    roleTitle: 'Teknik Servis & Arıza-Onarım Şefi',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    department: 'Teknik Servis & RMA Laboratuvarı',
+    phone: '+90 532 400 0004',
+    status: 'AKTIF',
+  },
+  {
     id: 'usr-onofis',
+    username: 'onofis',
+    password: '123456',
     name: 'Selin Arslan',
     email: 'onofis@depopro.com',
     role: 'ONOFIS',
@@ -25,6 +42,8 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'usr-backofis',
+    username: 'backofis',
+    password: '123456',
     name: 'Zeynep Kaya',
     email: 'backofis@depopro.com',
     role: 'BACKOFIS',
@@ -32,17 +51,6 @@ export const INITIAL_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     department: 'Backofis & Muhasebe',
     phone: '+90 532 300 0003',
-    status: 'AKTIF',
-  },
-  {
-    id: 'usr-teknik',
-    name: 'Emre Yıldız',
-    email: 'teknik@depopro.com',
-    role: 'TEKNIK',
-    roleTitle: 'Teknik Servis & Arıza-Onarım Şefi',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    department: 'Teknik Servis & RMA Laboratuvarı',
-    phone: '+90 532 400 0004',
     status: 'AKTIF',
   },
 ];

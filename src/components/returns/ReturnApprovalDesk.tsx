@@ -331,15 +331,6 @@ export const ReturnApprovalDesk: React.FC = () => {
                         Excel'den kopyalayıp alt alta, boşlukla veya virgülle yapıştırabilirsiniz
                       </span>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={handleLoadSampleSerials}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold px-2 py-1 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3 text-indigo-400" />
-                      <span>20 Örnek Yükle</span>
-                    </button>
                   </div>
 
                   <textarea
@@ -969,14 +960,6 @@ export const ReturnApprovalDesk: React.FC = () => {
                     <span className="text-xs text-amber-300 font-bold">
                       Toplu Seri Numaraları Yapıştır
                     </span>
-                    <button
-                      type="button"
-                      onClick={handleLoadSampleSerials}
-                      className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3 text-amber-400" />
-                      <span>20 Örnek Yükle</span>
-                    </button>
                   </div>
 
                   <textarea
@@ -1322,14 +1305,6 @@ export const ReturnApprovalDesk: React.FC = () => {
                   <span className="text-xs text-indigo-300 font-bold">
                     Toplu Seri Numaraları Yapıştır
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleLoadSampleSerials}
-                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold px-2 py-1 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3 h-3 text-indigo-400" />
-                    <span>20 Örnek Yükle</span>
-                  </button>
                 </div>
 
                 <textarea

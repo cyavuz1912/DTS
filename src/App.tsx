@@ -23,9 +23,20 @@ const AppContent: React.FC = () => {
     return <LoginScreen />;
   }
 
-  // Render active page
+  // Render active page based on role permissions
   const renderPage = () => {
-    switch (activeTab) {
+    const defaultRoleTab =
+      currentUser.role === 'DEPO'
+        ? 'checkout'
+        : currentUser.role === 'TEKNIK'
+        ? 'package_approvals'
+        : currentUser.role === 'ONOFIS'
+        ? 'returns'
+        : 'devices';
+
+    const effectiveTab = canAccess(activeTab) ? activeTab : defaultRoleTab;
+
+    switch (effectiveTab) {
       case 'checkout':
         return <DeviceCheckout />;
       case 'package_approvals':
@@ -45,7 +56,7 @@ const AppContent: React.FC = () => {
       case 'reconciliation':
         return <ReconciliationScreen />;
       default:
-        return <DeviceCheckout />;
+        return <DeviceLookup />;
     }
   };
 

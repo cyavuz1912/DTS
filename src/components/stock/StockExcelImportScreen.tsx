@@ -90,13 +90,6 @@ export const StockExcelImportScreen: React.FC = () => {
     }
   };
 
-  // Instant demo test with generated Excel
-  const handleLoadSampleDemo = async () => {
-    const sampleFile = createSampleStockExcelFile();
-    setSelectedFile(sampleFile);
-    await handleScanFile(sampleFile);
-  };
-
   // Apply updates to warehouse database
   const handleApplyUpdates = () => {
     if (!scanResult) return;
@@ -166,7 +159,7 @@ export const StockExcelImportScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick Template Download & Demo Action Buttons */}
+        {/* Quick Template Download Button */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             type="button"
@@ -174,16 +167,7 @@ export const StockExcelImportScreen: React.FC = () => {
             className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm hover:text-white"
           >
             <Download className="w-4 h-4 text-emerald-400" />
-            <span>Örnek Şablon (.xlsx)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLoadSampleDemo}
-            className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-600/30"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>⚡ Test Stok Exceli Yükle</span>
+            <span>Stok Şablonu İndir (.xlsx)</span>
           </button>
         </div>
       </div>

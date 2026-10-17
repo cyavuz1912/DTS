@@ -454,16 +454,11 @@ export const ReconciliationScreen: React.FC = () => {
           <div className="pt-3 border-t border-slate-800">
             <button
               type="button"
-              onClick={() => {
-                if (confirm('Tüm veriler ilk fabrika ayarlarına sıfırlanacak. Devam edilsin mi?')) {
-                  resetToDefaults();
-                  alert('Sistem başlangıç mock verilerine sıfırlandı.');
-                }
-              }}
+              onClick={() => resetToDefaults()}
               className="w-full py-2 text-rose-400 hover:bg-rose-500/10 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Tüm Sistemi Başlangıç Demo Verilerine Sıfırla</span>
+              <span>Sistem Verilerini Sıfırla</span>
             </button>
           </div>
         </div>

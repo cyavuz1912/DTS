@@ -38,6 +38,10 @@ interface WarehouseContextType {
   setActiveTab: (tab: string) => void;
 
   // Role & Auth
+  loginWithCredentials: (
+    identifier: string,
+    password: string
+  ) => { success: boolean; message?: string; user?: User };
   loginAsRole: (role: UserRole) => void;
   logout: () => void;
   canAccess: (tab: string) => boolean;
@@ -115,19 +119,37 @@ export const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
 };
 
 export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Current user / Login state
+  // Current user / Login state (Starts unauthenticated at LoginScreen unless active session exists)
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('depopro_wms_user');
+    const saved = localStorage.getItem('depopro_wms_active_session_v1');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        /* ignore */
+      }
     }
-    return INITIAL_USERS[0]; // Start with Depo manager by default
+    return null;
   });
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('depopro_wms_users_list');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        const parsed: User[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(u => {
+            const initMatch = INITIAL_USERS.find(iu => iu.id === u.id || iu.role === u.role);
+            return {
+              ...u,
+              username: u.username || initMatch?.username || u.email.split('@')[0],
+              password: u.password || initMatch?.password || '123456',
+            };
+          });
+        }
+      } catch (e) {
+        /* ignore */
+      }
     }
     return INITIAL_USERS;
   });
@@ -187,9 +209,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Sync state to LocalStorage
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('depopro_wms_user', JSON.stringify(currentUser));
+      localStorage.setItem('depopro_wms_active_session_v1', JSON.stringify(currentUser));
     } else {
-      localStorage.removeItem('depopro_wms_user');
+      localStorage.removeItem('depopro_wms_active_session_v1');
     }
   }, [currentUser]);
 
@@ -286,11 +308,13 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
-  useEffect(() => {
-    if (currentUser?.role === 'ONOFIS' && activeTab !== 'returns') {
-      setActiveTab('returns');
-    }
-  }, [currentUser, activeTab]);
+  const getDefaultTabForRole = (role: UserRole): string => {
+    if (role === 'DEPO') return 'checkout';
+    if (role === 'TEKNIK') return 'package_approvals';
+    if (role === 'ONOFIS') return 'returns';
+    if (role === 'BACKOFIS') return 'devices';
+    return 'devices';
+  };
 
   // Date helper
   const nowStr = () => {
@@ -299,21 +323,71 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  // Authenticate user with username/email & password
+  const loginWithCredentials = (
+    identifier: string,
+    password: string
+  ): { success: boolean; message?: string; user?: User } => {
+    const cleanId = identifier.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    if (!cleanId || !cleanPass) {
+      return {
+        success: false,
+        message: 'Lütfen kullanıcı adı/e-posta ve şifrenizi eksiksiz giriniz.',
+      };
+    }
+
+    const matchedUser = users.find(
+      u =>
+        u.email.toLowerCase() === cleanId ||
+        (u.username && u.username.toLowerCase() === cleanId) ||
+        u.name.toLowerCase() === cleanId ||
+        u.role.toLowerCase() === cleanId
+    );
+
+    if (!matchedUser) {
+      return {
+        success: false,
+        message: 'Bu kullanıcı adı veya e-posta adresine kayıtlı bir hesap bulunamadı!',
+      };
+    }
+
+    if (matchedUser.status === 'PASIF') {
+      return {
+        success: false,
+        message: 'Bu kullanıcı hesabı pasif durumdadır. Giriş yetkiniz kısıtlanmıştır.',
+      };
+    }
+
+    const expectedPassword = matchedUser.password || '123456';
+    if (cleanPass !== expectedPassword) {
+      return {
+        success: false,
+        message: 'Girdiğiniz şifre hatalı! Lütfen kontrol edip tekrar deneyiniz.',
+      };
+    }
+
+    setCurrentUser(matchedUser);
+    setActiveTab(getDefaultTabForRole(matchedUser.role));
+    return {
+      success: true,
+      user: matchedUser,
+    };
+  };
+
   // Login as one of the 4 roles
   const loginAsRole = (role: UserRole) => {
     const target = users.find(u => u.role === role) || INITIAL_USERS.find(u => u.role === role);
     if (target) {
       setCurrentUser(target);
-      // Switch to a permissible default tab
-      if (role === 'DEPO') setActiveTab('checkout');
-      else if (role === 'ONOFIS') setActiveTab('returns');
-      else if (role === 'BACKOFIS') setActiveTab('devices');
-      else if (role === 'TEKNIK') setActiveTab('returns');
+      setActiveTab(getDefaultTabForRole(role));
     }
   };
 
   const logout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('depopro_wms_active_session_v1');
   };
 
   // Permission access check
@@ -341,6 +415,12 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     return false;
   };
+
+  useEffect(() => {
+    if (currentUser && !canAccess(activeTab)) {
+      setActiveTab(getDefaultTabForRole(currentUser.role));
+    }
+  }, [currentUser, activeTab]);
 
   // Checkout: Assign devices in batch to personnel
   const assignDevicesToPersonnel = (
@@ -1508,7 +1588,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const resetToDefaults = () => {
     localStorage.clear();
-    setCurrentUser(INITIAL_USERS[0]);
+    setCurrentUser(null);
     setUsers(INITIAL_USERS);
     setPersonnel(INITIAL_PERSONNEL);
     setDevices(INITIAL_DEVICES);
@@ -1538,6 +1618,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         settings,
         activeTab,
         setActiveTab,
+        loginWithCredentials,
         loginAsRole,
         logout,
         canAccess,

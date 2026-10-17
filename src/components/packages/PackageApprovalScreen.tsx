@@ -474,20 +474,6 @@ export const PackageApprovalScreen: React.FC = () => {
                           </button>
                         </div>
                       )}
-
-                      {/* Depo Test Simulation Button */}
-                      {isDepo && isPending && (
-                        <div className="pt-2">
-                          <button
-                            onClick={() => handleAccept(pkg)}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-[11px] font-semibold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
-                            title="Alıcı adına kabul ederek akışı test edin"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Alıcı Adına Onayla (Demo Test)</span>
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
 

@@ -126,40 +126,6 @@ export const WarehouseNotificationCenter: React.FC = () => {
     }
   };
 
-  // Quick simulation helpers for testing real-time events
-  const simulateAhmetApproval = () => {
-    addNotification({
-      type: 'PACKAGE_APPROVAL',
-      actorName: 'Ahmet Özer',
-      actorRole: 'Saha Ekibi',
-      title: 'Ahmet Özer malzemeleri onayladı',
-      description: `PKT-2026-${Math.floor(1000 + Math.random() * 9000)} nolu sepet içerisindeki 2 adet modemi kontrol edip eksiksiz zimmetine aldı.`,
-      linkTab: 'package_approvals',
-    });
-  };
-
-  const simulateAhmetReturn = () => {
-    addNotification({
-      type: 'RETURN_SUBMITTED',
-      actorName: 'Ahmet Özer',
-      actorRole: 'Saha Ekibi',
-      title: 'Ahmet Özer iade gönderdi',
-      description: `SN-ZTE-${Math.floor(10000 + Math.random() * 90000)} nolu arızalı router cihazını saha değişiminden sonra depoya iade onayı için gönderdi.`,
-      linkTab: 'returns',
-    });
-  };
-
-  const simulateTeknikApproval = () => {
-    addNotification({
-      type: 'PACKAGE_APPROVAL',
-      actorName: 'Emre Yıldız',
-      actorRole: 'Teknik Servis',
-      title: 'Emre Yıldız malzemeleri onayladı',
-      description: 'Depodan gelen test kolisi fiziki kontrolleri yapılarak teknik servis zimmetine kabul edildi.',
-      linkTab: 'package_approvals',
-    });
-  };
-
   const isDepo = currentUser?.role === 'DEPO';
 
   return (
@@ -238,34 +204,6 @@ export const WarehouseNotificationCenter: React.FC = () => {
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
-            </div>
-          </div>
-
-          {/* Quick Simulation Bar (Allows instant testing of "Ahmet Özer onayladı" & "Ahmet Özer iade gönderdi") */}
-          <div className="px-3 py-2 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-1 overflow-x-auto text-[11px]">
-            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 shrink-0">
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              Canlı Test:
-            </span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={simulateAhmetApproval}
-                className="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold transition cursor-pointer"
-              >
-                + Ahmet Özer Onayladı
-              </button>
-              <button
-                onClick={simulateAhmetReturn}
-                className="px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition cursor-pointer"
-              >
-                + Ahmet Özer İade Etti
-              </button>
-              <button
-                onClick={simulateTeknikApproval}
-                className="px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold transition cursor-pointer hidden sm:inline-block"
-              >
-                + Teknik Onayladı
-              </button>
             </div>
           </div>
 
