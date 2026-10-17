@@ -1,0 +1,6 @@
+{
+  "name": "DepoPro - Akıllı Depo Takip Sistemi",
+  "description": "Admin, Backoffice, Teknik ve Ön Ofis için çoklu rol tabanlı depo, envanter, iş emri ve sevkiyat yönetim prototipi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
