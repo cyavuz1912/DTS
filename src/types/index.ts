@@ -41,7 +41,14 @@ export type TechnicalWorkStatus =
   | 'TEST_ASAMASINDA'
   | 'ONARIM_TAMAMLANDI';
 
-export type DeviceCondition = 'Sağlam' | 'Arıza' | 'Karantina' | 'Sağlam Dönen';
+export type DeviceCondition =
+  | 'Sağlam'
+  | 'Arızalı'
+  | 'Arıza'
+  | 'Karantinada'
+  | 'Karantina'
+  | 'Sağlam Dönen'
+  | 'Hurda';
 
 export interface Device {
   id: string;
@@ -144,6 +151,13 @@ export interface SystemSettings {
   warehouseLocation: string;
 }
 
+export interface StatusChangeRecord {
+  serialNumber: string;
+  name: string;
+  oldCondition: string;
+  newCondition: string;
+}
+
 export interface StockExcelRow {
   rowNumber: number;
   serialNumber: string;
@@ -154,6 +168,9 @@ export interface StockExcelRow {
   shelfLocation: string;
   status: DeviceStatus;
   condition?: DeviceCondition | string;
+  assignedPersonnelName?: string | null;
+  assignedPersonnelId?: string | null;
+  hasPersonnelColumn?: boolean;
   isSecondaryHardware: boolean;
   notes?: string;
   actionType: 'NEW' | 'UPDATE' | 'NO_CHANGE' | 'INVALID';
@@ -176,6 +193,7 @@ export interface StockExcelApplySummary {
   newAddedCount: number;
   updatedCount: number;
   totalProcessed: number;
+  statusChanges: StatusChangeRecord[];
 }
 
 export type NotificationType =

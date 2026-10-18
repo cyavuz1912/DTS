@@ -306,40 +306,52 @@ export const DeviceLookup: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <History className="w-5 h-5 text-indigo-400" />
                   <h4 className="font-bold text-sm text-white">
-                    Zaman Çizelgesi & Hareket Tarihçesi (Lifecycle Timeline)
+                    Eylemler & Hareket Geçmişi (Zaman Çizelgesi)
                   </h4>
                 </div>
 
-                <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
-                  {selectedDevice.history.map((h, idx) => (
-                    <div key={h.id || idx} className="relative group">
-                      <div className="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-indigo-600 ring-4 ring-slate-900 border border-indigo-400"></div>
+                {!selectedDevice.history || selectedDevice.history.length === 0 ? (
+                  <div className="bg-slate-950/70 p-8 rounded-2xl border border-slate-800 text-center space-y-2">
+                    <History className="w-8 h-8 text-slate-600 mx-auto opacity-60" />
+                    <h5 className="text-xs font-bold text-slate-300">
+                      Henüz bir işlem veya hareket kaydı bulunmamaktadır.
+                    </h5>
+                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                      Bu cihaz üzerinde yeni bir malzeme çıkışı, zimmet, transfer veya iade işlemi yapıldığında sistem otomatik olarak hareket kaydı oluşturacaktır.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
+                    {selectedDevice.history.map((h, idx) => (
+                      <div key={h.id || idx} className="relative group">
+                        <div className="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-indigo-600 ring-4 ring-slate-900 border border-indigo-400"></div>
 
-                      <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-white">{h.action}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">{h.date}</span>
-                        </div>
-
-                        {h.personnelName && (
-                          <div className="text-xs text-amber-300 font-medium">
-                            İlgili Personel: {h.personnelName}
+                        <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-white">{h.action}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{h.date}</span>
                           </div>
-                        )}
 
-                        <div className="text-[11px] text-slate-400">
-                          İşlemi Yapan: <strong>{h.performedBy}</strong>
+                          {h.personnelName && (
+                            <div className="text-xs text-amber-300 font-medium">
+                              İlgili Personel: {h.personnelName}
+                            </div>
+                          )}
+
+                          <div className="text-[11px] text-slate-400">
+                            İşlemi Yapan: <strong>{h.performedBy}</strong>
+                          </div>
+
+                          {h.note && (
+                            <p className="text-xs text-slate-300 bg-slate-900/60 p-2 rounded-xl mt-1 border border-slate-800/80">
+                              {h.note}
+                            </p>
+                          )}
                         </div>
-
-                        {h.note && (
-                          <p className="text-xs text-slate-300 bg-slate-900/60 p-2 rounded-xl mt-1 border border-slate-800/80">
-                            {h.note}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : (

@@ -11,6 +11,7 @@ import {
   StockExcelRow,
   StockExcelScanResult,
   StockExcelApplySummary,
+  StatusChangeRecord,
   TransferPackage,
   WarehouseNotification,
 } from '../types';
@@ -168,13 +169,18 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const parsed: Device[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge parsed with INITIAL_DEVICES, giving precedence to initial conditions for demo/sample devices
           const merged = deduplicateById([...INITIAL_DEVICES, ...parsed]);
           return merged.map(d => {
             const initMatch = INITIAL_DEVICES.find(i => i.id === d.id);
+            // Clean out legacy demo mock history items
+            const realHistory = (d.history || []).filter(h => {
+              if (!h || !h.id) return false;
+              return !/^hist-(1[0-7]?|[2-9])[a-c]?$/.test(h.id);
+            });
             return {
               ...d,
               condition: d.condition || initMatch?.condition || 'Sağlam',
+              history: realHistory,
             };
           });
         }
@@ -189,11 +195,12 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const parsed: ReturnRequest[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return deduplicateById([...parsed, ...INITIAL_RETURNS]);
+          const realReturns = parsed.filter(r => !['ret-101', 'ret-102', 'ret-103', 'ret-104'].includes(r.id));
+          return deduplicateById(realReturns);
         }
       } catch (e) { /* ignore */ }
     }
-    return deduplicateById(INITIAL_RETURNS);
+    return [];
   });
 
   const [packages, setPackages] = useState<TransferPackage[]>(() => {
@@ -202,11 +209,12 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const parsed: TransferPackage[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return deduplicateById([...parsed, ...INITIAL_PACKAGES]);
+          const realPackages = parsed.filter(p => !['pkg-101', 'pkg-102', 'pkg-103'].includes(p.id));
+          return deduplicateById(realPackages);
         }
       } catch (e) { /* ignore */ }
     }
-    return deduplicateById(INITIAL_PACKAGES);
+    return [];
   });
 
   const [settings, setSettings] = useState<SystemSettings>(() => {
@@ -218,6 +226,35 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const [activeTab, setActiveTab] = useState<string>('checkout');
+
+  // Notifications State & LocalStorage persistence (Eylemler & Hareket Geçmişi)
+  const [notifications, setNotifications] = useState<WarehouseNotification[]>(() => {
+    const saved = localStorage.getItem('depopro_wms_notifications');
+    if (saved) {
+      try {
+        const parsed: WarehouseNotification[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const realNotifications = parsed.filter(n => !n.id.startsWith('notif-'));
+          return deduplicateById(realNotifications);
+        }
+      } catch (e) { /* ignore */ }
+    }
+    return [];
+  });
+
+  // One-time automatic cleanup of legacy demo actions/movements from localStorage
+  useEffect(() => {
+    const isCleaned = localStorage.getItem('depopro_wms_demo_actions_cleared_v2');
+    if (!isCleaned) {
+      localStorage.removeItem('depopro_wms_notifications');
+      localStorage.removeItem('depopro_wms_packages');
+      localStorage.removeItem('depopro_wms_returns');
+      localStorage.setItem('depopro_wms_demo_actions_cleared_v2', 'true');
+      setNotifications([]);
+      setPackages([]);
+      setReturnRequests([]);
+    }
+  }, []);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -251,20 +288,6 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem('depopro_wms_settings', JSON.stringify(settings));
   }, [settings]);
-
-  // Notifications State & LocalStorage persistence
-  const [notifications, setNotifications] = useState<WarehouseNotification[]>(() => {
-    const saved = localStorage.getItem('depopro_wms_notifications');
-    if (saved) {
-      try {
-        const parsed: WarehouseNotification[] = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return deduplicateById([...parsed, ...INITIAL_NOTIFICATIONS]);
-        }
-      } catch (e) { /* ignore */ }
-    }
-    return deduplicateById(INITIAL_NOTIFICATIONS);
-  });
 
   useEffect(() => {
     localStorage.setItem('depopro_wms_notifications', JSON.stringify(notifications));
@@ -408,8 +431,10 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!currentUser) return false;
     const role = currentUser.role;
 
-    // DEPO: Full Manager Access
-    if (role === 'DEPO') return true;
+    // DEPO: Depo Yönetimi & Genel İşlemler (Zimmetim sekmesi yalnızca TEKNIK rolüne özeldir)
+    if (role === 'DEPO') {
+      return tab !== 'teknik_inventory';
+    }
 
     // ONOFIS: Sadece İade Onaya Gönder
     if (role === 'ONOFIS') {
@@ -1189,14 +1214,64 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               return '';
             };
 
-            const rawSerial = getValue('SERİ NO', 'SERİ NUMARASI', 'SERI NO', 'SERI_NO', 'SERIAL', 'SN', 'BARKOD', 'BARCODE');
+            // Helper to check if any of the given keys exist in row headers
+            const hasKey = (...keys: string[]): boolean => {
+              return keys.some(k => {
+                if (row[k] !== undefined) return true;
+                return Object.keys(row).some(rk => rk.trim().toLowerCase() === k.trim().toLowerCase());
+              });
+            };
+
+            const rawSerial = getValue(
+              'SERİ NO',
+              'SERİ NUMARASI',
+              'SERI NO',
+              'SERI NUMARASI',
+              'SERI_NO',
+              'SERIAL',
+              'SERIAL NUMBER',
+              'SERIAL_NO',
+              'SN',
+              'BARKOD',
+              'BARCODE'
+            );
             const serialNumber = rawSerial.toUpperCase().trim();
-            const name = getValue('ÜRÜN ADI', 'URUN ADI', 'URUN_ADI', 'ÜRÜN', 'DEVICE NAME', 'CİHAZ', 'NAME') || (serialNumber ? `Cihaz (${serialNumber})` : 'Bilinmeyen Cihaz');
-            const itemCode = getValue('KALEM KODU', 'KALEM_KODU', 'STOK KODU', 'ITEM_CODE', 'MALZEME KODU', 'KOD') || 'KLM-GEN-01';
-            const model = getValue('MODEL', 'CİHAZ MODELİ', 'MODELI') || 'Standart Model';
+            const name = getValue(
+              'ÜRÜN ADI',
+              'URUN ADI',
+              'URUN_ADI',
+              'ÜRÜN',
+              'URUN',
+              'CİHAZ ADI',
+              'CIHAZ ADI',
+              'CİHAZ',
+              'CIHAZ',
+              'DEVICE NAME',
+              'DEVICE',
+              'NAME'
+            ) || (serialNumber ? `Cihaz (${serialNumber})` : 'Bilinmeyen Cihaz');
+
+            const itemCode = getValue(
+              'KALEM KODU',
+              'KALEM_KODU',
+              'STOK KODU',
+              'ITEM_CODE',
+              'MALZEME KODU',
+              'KOD'
+            ) || 'KLM-GEN-01';
+
+            const model = getValue(
+              'MODEL',
+              'MODELİ',
+              'MODELI',
+              'CİHAZ MODELİ',
+              'CIHAZ MODELI'
+            ) || 'Standart Model';
+
             const rawCategory = getValue('KATEGORİ', 'KATEGORI', 'CATEGORY', 'TÜR');
             const shelfLocation = getValue('RAF KONUMU', 'RAF', 'LOKASYON', 'SHELF', 'DEPO KONUMU') || 'GENEL-RAF';
             const notes = getValue('NOT', 'NOTLAR', 'AÇIKLAMA', 'NOTES', 'DESCRIPTION') || '';
+
             const rawCondition = getValue(
               'STATÜ',
               'STATU',
@@ -1216,25 +1291,78 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               'CIHAZ DURUMU'
             );
 
-            const normalizeCondition = (val: string): 'Sağlam' | 'Arıza' | 'Karantina' | 'Sağlam Dönen' | string => {
+            // Normalize condition based on user guidelines:
+            // "sağlam", "aktif", "çalışıyor", "stokta" -> Sağlam
+            // "arızalı", "arıza", "bozuk", "tamirde" -> Arızalı
+            // "karantina", "karantinada", "incelemede", "test" -> Karantinada
+            // "hurda", "pert" -> Hurda
+            // "sağlam dönen" -> Sağlam Dönen
+            const normalizeCondition = (val: string): 'Sağlam' | 'Arızalı' | 'Karantinada' | 'Sağlam Dönen' | 'Hurda' | string => {
               const v = val.trim().toLowerCase();
               if (!v) return 'Sağlam';
-              if (v.includes('arız') || v.includes('ariz') || v.includes('fault') || v.includes('defect') || v.includes('bozuk') || v.includes('hasar') || v.includes('tamir')) {
-                return 'Arıza';
-              }
-              if (v.includes('karantin') || v.includes('quarantine')) {
-                return 'Karantina';
+              if (v.includes('hurda') || v.includes('pert') || v.includes('scrap')) {
+                return 'Hurda';
               }
               if (v.includes('dönen') || v.includes('donen') || v.includes('dönüş') || v.includes('donus') || v.includes('iade')) {
                 return 'Sağlam Dönen';
               }
-              if (v.includes('sağlam') || v.includes('saglam') || v.includes('ok') || v.includes('iyi') || v.includes('faal') || v.includes('çalışır')) {
+              if (v.includes('karantin') || v.includes('quarantine') || v.includes('inceleme') || v.includes('test')) {
+                return 'Karantinada';
+              }
+              if (v.includes('arız') || v.includes('ariz') || v.includes('fault') || v.includes('defect') || v.includes('bozuk') || v.includes('hasar') || v.includes('tamir')) {
+                return 'Arızalı';
+              }
+              if (v.includes('sağlam') || v.includes('saglam') || v.includes('aktif') || v.includes('çalış') || v.includes('calis') || v.includes('stokta') || v.includes('ok') || v.includes('iyi') || v.includes('faal')) {
                 return 'Sağlam';
               }
               return val.trim();
             };
 
             const condition = normalizeCondition(rawCondition);
+
+            // Flexible Personnel / Zimmet Column Detection
+            const personnelKeys = [
+              'ZİMMETLİ KİŞİ',
+              'ZIMMETLI KISI',
+              'ZİMMETLİ',
+              'ZIMMETLI',
+              'ZİMMET',
+              'ZIMMET',
+              'PERSONEL',
+              'PERSONEL ADI',
+              'SAHİBİ',
+              'SAHIBI',
+              'KULLANICI',
+              'KULLANICI ADI',
+              'KULLANICI_ADI',
+              'ASSIGNED TO',
+              'ASSIGNED_TO',
+              'ASSIGNED',
+              'USER'
+            ];
+            const hasPersonnelColumn = hasKey(...personnelKeys);
+            const rawPersonnel = hasPersonnelColumn ? getValue(...personnelKeys) : '';
+
+            // Match personnel name to known list if available
+            let assignedPersonnelName: string | null = null;
+            let assignedPersonnelId: string | null = null;
+            let targetStatus: DeviceStatus = 'DEPODA';
+
+            if (hasPersonnelColumn) {
+              if (rawPersonnel) {
+                assignedPersonnelName = rawPersonnel;
+                const matchedUser = users.find(u => u.name.toLowerCase() === rawPersonnel.toLowerCase());
+                const matchedPers = personnel.find(p => p.name.toLowerCase() === rawPersonnel.toLowerCase());
+                assignedPersonnelId = matchedUser?.id || matchedPers?.id || `usr-${rawPersonnel.toLowerCase().replace(/\s+/g, '-')}`;
+                const isTeknik = (matchedUser?.role === 'TEKNIK') || rawPersonnel.toLowerCase().includes('teknik');
+                targetStatus = isTeknik ? 'TEKNIKTE' : 'SAHADA';
+              } else {
+                // Sütun var ama hücre boş: Cihazı zimmetten düşürüp Ana Depo Stoğu'na çek
+                assignedPersonnelName = null;
+                assignedPersonnelId = null;
+                targetStatus = 'DEPODA';
+              }
+            }
 
             let category: any = 'Modem & Router';
             const lowerCat = rawCategory.toLowerCase();
@@ -1274,7 +1402,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               return;
             }
 
-            // Check if device already exists in system
+            // Check if device already exists in system (Upsert Primary Key: Serial Number)
             const existing = devices.find(d => d.serialNumber.toUpperCase() === serialNumber);
 
             if (existing) {
@@ -1297,8 +1425,14 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               if (condition && condition !== (existing.condition || 'Sağlam')) {
                 diffs.push(`Statü: "${existing.condition || 'Sağlam'}" ➔ "${condition}"`);
               }
-              if (existing.status !== 'DEPODA') {
-                diffs.push(`Durum: "${existing.status}" ➔ "DEPODA" (Depoya Alındı)`);
+
+              // Handle zimmet change diff
+              if (hasPersonnelColumn) {
+                if (rawPersonnel && rawPersonnel !== existing.assignedPersonnelName) {
+                  diffs.push(`Zimmet: "${existing.assignedPersonnelName || 'Depoda'}" ➔ "${rawPersonnel}"`);
+                } else if (!rawPersonnel && existing.assignedPersonnelName) {
+                  diffs.push(`Zimmetten Düşürüldü: "${existing.assignedPersonnelName}" ➔ "Ana Depo Stoğu"`);
+                }
               }
 
               if (diffs.length > 0) {
@@ -1311,8 +1445,11 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   model: model !== 'Standart Model' ? model : existing.model,
                   category: category || existing.category,
                   shelfLocation: shelfLocation || existing.shelfLocation,
-                  status: 'DEPODA',
+                  status: hasPersonnelColumn ? targetStatus : existing.status,
                   condition,
+                  assignedPersonnelName: hasPersonnelColumn ? assignedPersonnelName : existing.assignedPersonnelName,
+                  assignedPersonnelId: hasPersonnelColumn ? assignedPersonnelId : existing.assignedPersonnelId,
+                  hasPersonnelColumn,
                   isSecondaryHardware: isSecondary,
                   notes: notes || existing.notes,
                   actionType: 'UPDATE',
@@ -1331,6 +1468,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   shelfLocation: existing.shelfLocation,
                   status: existing.status,
                   condition: existing.condition || 'Sağlam',
+                  assignedPersonnelName: existing.assignedPersonnelName,
+                  assignedPersonnelId: existing.assignedPersonnelId,
+                  hasPersonnelColumn,
                   isSecondaryHardware: existing.isSecondaryHardware,
                   notes: existing.notes,
                   actionType: 'NO_CHANGE',
@@ -1348,12 +1488,17 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 model,
                 category,
                 shelfLocation,
-                status: 'DEPODA',
+                status: hasPersonnelColumn ? targetStatus : 'DEPODA',
                 condition,
+                assignedPersonnelName: hasPersonnelColumn ? assignedPersonnelName : null,
+                assignedPersonnelId: hasPersonnelColumn ? assignedPersonnelId : null,
+                hasPersonnelColumn,
                 isSecondaryHardware: isSecondary,
                 notes,
                 actionType: 'NEW',
-                changeDetails: [`Yeni cihaz olarak depo stoğuna eklenecek (Statü: ${condition})`],
+                changeDetails: [
+                  `Yeni cihaz olarak kaydedilecek (Statü: ${condition}${assignedPersonnelName ? `, Zimmet: ${assignedPersonnelName}` : ''})`
+                ],
               });
             }
           });
@@ -1384,6 +1529,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     let newAddedCount = 0;
     let updatedCount = 0;
+    const statusChanges: StatusChangeRecord[] = [];
 
     const newRows = scanResult.rows.filter(r => r.actionType === 'NEW');
     const updateRows = scanResult.rows.filter(r => r.actionType === 'UPDATE');
@@ -1397,6 +1543,42 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!updateData) return dev;
 
       updatedCount++;
+
+      // Track condition / status changes (e.g. SN-10293: Arızalı ➔ Sağlam)
+      const oldCond = dev.condition || 'Sağlam';
+      const newCond = updateData.condition !== undefined ? updateData.condition : oldCond;
+      if (oldCond !== newCond) {
+        statusChanges.push({
+          serialNumber: dev.serialNumber,
+          name: updateData.name || dev.name,
+          oldCondition: String(oldCond),
+          newCondition: String(newCond),
+        });
+      }
+
+      // Determine target assignment & status:
+      let targetStatus: DeviceStatus = dev.status;
+      let targetAssignedId = dev.assignedPersonnelId;
+      let targetAssignedName = dev.assignedPersonnelName;
+      let targetAssignedDate = dev.assignedDate;
+
+      if (updateData.hasPersonnelColumn) {
+        if (updateData.assignedPersonnelName) {
+          targetAssignedName = updateData.assignedPersonnelName;
+          targetAssignedId = updateData.assignedPersonnelId || dev.assignedPersonnelId || 'usr-custom';
+          targetAssignedDate = dev.assignedDate || dateStr;
+          targetStatus = (targetAssignedName.toLowerCase().includes('teknik') || targetAssignedId === 'usr-teknik')
+            ? 'TEKNIKTE'
+            : 'SAHADA';
+        } else {
+          // Boş bırakılmışsa cihazı zimmetten düşürüp Ana Depo Stoğu'na çek
+          targetStatus = 'DEPODA';
+          targetAssignedName = null;
+          targetAssignedId = null;
+          targetAssignedDate = null;
+        }
+      }
+
       const newHist = {
         id: `hist-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         date: dateStr,
@@ -1412,11 +1594,11 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         model: updateData.model || dev.model,
         category: updateData.category || dev.category,
         shelfLocation: updateData.shelfLocation || dev.shelfLocation,
-        status: dev.status === 'TEKNIKTE' ? 'TEKNIKTE' : ('DEPODA' as DeviceStatus),
-        condition: updateData.condition !== undefined ? updateData.condition : (dev.condition || 'Sağlam'),
-        assignedPersonnelId: dev.status === 'TEKNIKTE' ? dev.assignedPersonnelId : null,
-        assignedPersonnelName: dev.status === 'TEKNIKTE' ? dev.assignedPersonnelName : null,
-        assignedDate: dev.status === 'TEKNIKTE' ? dev.assignedDate : null,
+        status: targetStatus,
+        condition: newCond,
+        assignedPersonnelId: targetAssignedId,
+        assignedPersonnelName: targetAssignedName,
+        assignedDate: targetAssignedDate,
         notes: updateData.notes ? `${dev.notes ? dev.notes + ' | ' : ''}${updateData.notes}` : dev.notes,
         history: [newHist, ...dev.history],
       };
@@ -1425,6 +1607,21 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Add new devices
     const createdDevices: Device[] = newRows.map((r, idx) => {
       newAddedCount++;
+
+      let targetStatus: DeviceStatus = 'DEPODA';
+      let targetAssignedId: string | null = null;
+      let targetAssignedName: string | null = null;
+      let targetAssignedDate: string | null = null;
+
+      if (r.hasPersonnelColumn && r.assignedPersonnelName) {
+        targetAssignedName = r.assignedPersonnelName;
+        targetAssignedId = r.assignedPersonnelId || 'usr-custom';
+        targetAssignedDate = dateStr;
+        targetStatus = (targetAssignedName.toLowerCase().includes('teknik') || targetAssignedId === 'usr-teknik')
+          ? 'TEKNIKTE'
+          : 'SAHADA';
+      }
+
       return {
         id: `dev-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
         serialNumber: r.serialNumber.toUpperCase(),
@@ -1433,8 +1630,11 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         model: r.model,
         category: r.category,
         isSecondaryHardware: r.isSecondaryHardware,
-        status: 'DEPODA',
+        status: targetStatus,
         condition: r.condition || 'Sağlam',
+        assignedPersonnelId: targetAssignedId,
+        assignedPersonnelName: targetAssignedName,
+        assignedDate: targetAssignedDate,
         shelfLocation: r.shelfLocation,
         createdAt: dateStr.split(' ')[0],
         notes: r.notes || `Excel toplu stok yüklemesi ile eklendi (Statü: ${r.condition || 'Sağlam'}).`,
@@ -1444,7 +1644,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             date: dateStr,
             action: 'Excel ile Yeni Stok Girişi Yapıldı',
             performedBy: `${operatorName} (${operatorRole})`,
-            note: `Toplu Excel yüklemesi (${scanResult.fileName}) ile depoya kaydedildi. Statü: ${r.condition || 'Sağlam'}.`,
+            note: `Toplu Excel yüklemesi (${scanResult.fileName}) ile depoya kaydedildi. Statü: ${r.condition || 'Sağlam'}${targetAssignedName ? ` - Zimmet: ${targetAssignedName}` : ''}.`,
           },
         ],
       };
@@ -1458,7 +1658,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       actorName: operatorName,
       actorRole: operatorRole,
       title: 'Toplu Stok Güncellemesi Yapıldı',
-      description: `Excel dosyasından (${scanResult.fileName}) ${newAddedCount} yeni cihaz stoğa eklendi, ${updatedCount} cihaz güncellendi.`,
+      description: `Excel dosyasından (${scanResult.fileName}) ${newAddedCount} yeni cihaz stoğa eklendi, ${updatedCount} cihaz güncellendi.${statusChanges.length > 0 ? ` (${statusChanges.length} cihazın durumu güncellendi)` : ''}`,
       linkTab: 'devices',
     });
 
@@ -1466,6 +1666,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       newAddedCount,
       updatedCount,
       totalProcessed: newAddedCount + updatedCount,
+      statusChanges,
     };
   };
 
@@ -1478,6 +1679,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'MODEL': 'WS7100 V2',
         'KATEGORİ': 'Modem & Router',
         'STATÜ': 'Sağlam',
+        'ZİMMETLİ KİŞİ': '',
         'RAF KONUMU': 'RAF-A01',
         'AÇIKLAMA': 'Sıfır kutulu tedarik partisi',
       },
@@ -1488,6 +1690,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'MODEL': 'DIW7022',
         'KATEGORİ': 'Set-Top Box & TV',
         'STATÜ': 'Arıza',
+        'ZİMMETLİ KİŞİ': 'Emre Yıldız (Teknik)',
         'RAF KONUMU': 'TEKNIK-RAF',
         'AÇIKLAMA': 'Görüntü çıkışı vermiyor, arızalı cihaz',
       },
@@ -1498,6 +1701,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'MODEL': 'RE305 V4',
         'KATEGORİ': 'Wi-Fi Güçlendirici',
         'STATÜ': 'Karantina',
+        'ZİMMETLİ KİŞİ': '',
         'RAF KONUMU': 'KARANTINA-01',
         'AÇIKLAMA': 'Parti bazlı test için karantinaya alındı',
       },
@@ -1508,6 +1712,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'MODEL': 'SM-X110',
         'KATEGORİ': 'Tablet',
         'STATÜ': 'Sağlam Dönen',
+        'ZİMMETLİ KİŞİ': 'Ahmet Özer (Saha)',
         'RAF KONUMU': 'RAF-D01',
         'AÇIKLAMA': 'Abonelik iptali sonrası depoya sağlam dönen cihaz',
       },
@@ -1521,7 +1726,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const createSampleStockExcelFile = (): File => {
     // Generates an in-memory sample Excel containing:
-    // - 3 existing devices with updated shelf locations / models / statü
+    // - 3 existing devices with updated shelf locations / models / statü / zimmet
     // - 5 brand new devices demonstrating all statü variations (Sağlam, Arıza, Karantina, Sağlam Dönen)
     const sampleRows = [
       {
@@ -1531,6 +1736,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'MODEL': 'H3600 V9.2 Güncel',
         'KATEGORİ': 'Modem & Router',
         'STATÜ': 'Sağlam',
+        'ZİMMETLİ KİŞİ': '',
         'RAF KONUMU': 'RAF-YENI-A99',
         'AÇIKLAMA': 'Yeni rafa taşındı & revizyon güncellendi',
       },

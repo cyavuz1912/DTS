@@ -132,10 +132,10 @@ export const Header: React.FC = () => {
           </div>
         )}
 
-        {/* Right: Notification Bell (Depo Department) & User Account Controls */}
+        {/* Right: Eylemler & Hareket Geçmişi Bell & User Account Controls */}
         <div className="flex items-center gap-2.5">
-          {/* Warehouse Movement Notification Bell - Exclusive for Depo Department */}
-          {currentUser.role === 'DEPO' && <WarehouseNotificationCenter />}
+          {/* Warehouse Movement & Action Notification Bell */}
+          <WarehouseNotificationCenter />
 
           {/* Active User Profile Dropdown */}
           <div className="relative" ref={menuRef}>

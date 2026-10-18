@@ -166,7 +166,7 @@ export const WarehouseNotificationCenter: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-black text-white tracking-tight">
-                    Depo Hareket Bildirimleri
+                    Eylemler & Hareket Geçmişi
                   </h3>
                   {unreadNotificationsCount > 0 && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950">
@@ -256,13 +256,11 @@ export const WarehouseNotificationCenter: React.FC = () => {
             {filteredNotifications.length === 0 ? (
               <div className="py-12 text-center text-slate-500 space-y-2">
                 <Bell className="w-8 h-8 mx-auto text-slate-600 opacity-60" />
-                <p className="text-xs font-semibold text-slate-400">
-                  {filterType === 'UNREAD'
-                    ? 'Okunmamış bildirim bulunmuyor'
-                    : 'Bu kategoride bildirim bulunamadı'}
+                <p className="text-xs font-semibold text-slate-300">
+                  Henüz bir işlem veya hareket kaydı bulunmamaktadır.
                 </p>
                 <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-                  Yeni bir malzeme çıkışı yapıldığında veya personel onay/iade işlemi gerçekleştirdiğinde burada listelenecektir.
+                  Yeni bir malzeme girişi, zimmet, çıkış veya iade yapıldığında listeye gerçek hareket kaydı eklenecektir.
                 </p>
               </div>
             ) : (

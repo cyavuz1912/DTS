@@ -181,33 +181,83 @@ export const StockExcelImportScreen: React.FC = () => {
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-black text-white">
-                Depo Stoğu Başarıyla Güncellendi!
+                Excel Stok Yükleme Özeti
               </h3>
               <p className="text-xs text-emerald-200">
-                Excel dosyasındaki tüm veriler tarandı ve depo sistemine işlendi. Cihazların zaman çizelgelerine ve tarihçelerine güncelleme kayıtları düşüldü.
+                Excel dosyasındaki veriler başarıyla taranarak sistem kayıtları ile eşleştirildi ve güncellendi.
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-            <div className="bg-slate-900/80 border border-emerald-500/30 p-4 rounded-2xl">
-              <span className="text-[11px] text-slate-400 block font-bold uppercase">Yeni Eklenen Cihazlar</span>
-              <span className="text-2xl font-black text-emerald-400">+{applySummary.newAddedCount} Adet</span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Depo stoğuna yeni kaydedildi</span>
+            <div className="bg-slate-900/80 border border-slate-700 p-4 rounded-2xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center font-black text-lg">
+                📊
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-400 block font-bold uppercase">Genel İşlem</span>
+                <span className="text-base sm:text-lg font-black text-white">Toplam {applySummary.totalProcessed} satır işlendi.</span>
+              </div>
             </div>
 
-            <div className="bg-slate-900/80 border border-indigo-500/30 p-4 rounded-2xl">
-              <span className="text-[11px] text-slate-400 block font-bold uppercase">Bilgisi Güncellenen Cihazlar</span>
-              <span className="text-2xl font-black text-indigo-400">{applySummary.updatedCount} Adet</span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Raf, model veya kodları güncellendi</span>
+            <div className="bg-slate-900/80 border border-indigo-500/30 p-4 rounded-2xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-lg">
+                ✔
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-400 block font-bold uppercase">Mevcut Cihazlar</span>
+                <span className="text-base sm:text-lg font-black text-indigo-400">✔ {applySummary.updatedCount} adet mevcut cihaz güncellendi.</span>
+              </div>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-700 p-4 rounded-2xl">
-              <span className="text-[11px] text-slate-400 block font-bold uppercase">Toplam İşlenen Satır</span>
-              <span className="text-2xl font-black text-white">{applySummary.totalProcessed} Cihaz</span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Stok veritabanında aktif</span>
+            <div className="bg-slate-900/80 border border-emerald-500/30 p-4 rounded-2xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-lg">
+                ➕
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-400 block font-bold uppercase">Yeni Kayıtlar</span>
+                <span className="text-base sm:text-lg font-black text-emerald-400">➕ {applySummary.newAddedCount} adet yeni cihaz eklendi.</span>
+              </div>
             </div>
           </div>
+
+          {/* Status Changes List if any */}
+          {applySummary.statusChanges && applySummary.statusChanges.length > 0 && (
+            <div className="mt-3 p-4 bg-slate-900/90 border border-amber-500/30 rounded-2xl space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  Durum Değişikliği Olan Cihazlar ({applySummary.statusChanges.length} Cihaz)
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 max-h-48 overflow-y-auto">
+                {applySummary.statusChanges.map((change, cIdx) => (
+                  <div
+                    key={`${change.serialNumber}-${cIdx}`}
+                    className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="font-mono font-bold text-white truncate text-[11px]">
+                        {change.serialNumber}
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {change.name}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                        {change.oldCondition}
+                      </span>
+                      <span className="text-indigo-400 font-black">➔</span>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {change.newCondition}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-3 pt-2">
             <button
@@ -630,9 +680,16 @@ export const StockExcelImportScreen: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px]">
-                              {row.shelfLocation}
-                            </span>
+                            <div className="space-y-0.5">
+                              <span className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px] inline-block">
+                                {row.shelfLocation}
+                              </span>
+                              {row.assignedPersonnelName && (
+                                <div className="text-[10px] text-amber-300 font-bold flex items-center gap-1">
+                                  <span>👤 {row.assignedPersonnelName}</span>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-3">
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border inline-block ${actionBadge}`}>

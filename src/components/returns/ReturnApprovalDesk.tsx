@@ -1407,7 +1407,15 @@ export const ReturnApprovalDesk: React.FC = () => {
 
           <div className="divide-y divide-slate-800 text-xs">
             {processedRequests.length === 0 ? (
-              <p className="text-slate-500 py-8 text-center">Henüz sonuçlanmış bir iade işlemi bulunmuyor.</p>
+              <div className="py-12 text-center text-slate-500 space-y-2">
+                <RotateCcw className="w-8 h-8 mx-auto text-slate-600 opacity-60" />
+                <p className="text-xs font-semibold text-slate-300">
+                  Henüz bir işlem veya hareket kaydı bulunmamaktadır.
+                </p>
+                <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                  Depoya iade edilen ve sonuçlandırılan cihaz hareketleri burada listelenecektir.
+                </p>
+              </div>
             ) : (
               processedRequests.map((req, idx) => (
                 <div key={`${req.id}-${idx}`} className="py-3 flex items-center justify-between gap-4">
