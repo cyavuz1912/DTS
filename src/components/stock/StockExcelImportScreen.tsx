@@ -239,7 +239,7 @@ export const StockExcelImportScreen: React.FC = () => {
                 1. Adım: Excel Dosyasını Yükleyiniz
               </h3>
               <p className="text-xs text-slate-400">
-                Sistem; Seri No, Ürün Adı, Kalem Kodu, Model, Kategori ve Raf Konumu sütunlarını otomatik olarak tanır.
+                Sistem; Seri No, Ürün Adı, Kalem Kodu, Model, Kategori, Statü (Sağlam, Arıza, Karantina, Sağlam Dönen) ve Raf Konumu sütunlarını otomatik olarak tanır.
               </p>
             </div>
 
@@ -556,6 +556,7 @@ export const StockExcelImportScreen: React.FC = () => {
                     <th className="py-3 px-3">Model</th>
                     <th className="py-3 px-3">Kalem Kodu</th>
                     <th className="py-3 px-3">Kategori</th>
+                    <th className="py-3 px-3">Statü (Excel)</th>
                     <th className="py-3 px-3">Raf Konumu</th>
                     <th className="py-3 px-3">İşlem Türü</th>
                     <th className="py-3 px-3">Tespit Edilen Değişiklikler</th>
@@ -564,7 +565,7 @@ export const StockExcelImportScreen: React.FC = () => {
                 <tbody className="divide-y divide-slate-800/80">
                   {filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-500 text-xs">
+                      <td colSpan={10} className="py-12 text-center text-slate-500 text-xs">
                         Seçili filtreye veya arama kriterine uygun cihaz satırı bulunamadı.
                       </td>
                     </tr>
@@ -583,6 +584,16 @@ export const StockExcelImportScreen: React.FC = () => {
                         NO_CHANGE: '⚪ Değişiklik Yok',
                         INVALID: '🔴 Geçersiz',
                       }[row.actionType];
+
+                      const c = (row.condition || 'Sağlam').toLowerCase();
+                      let condBadgeCls = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+                      if (c.includes('arız') || c.includes('ariz') || c.includes('fault') || c.includes('bozuk')) {
+                        condBadgeCls = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+                      } else if (c.includes('karantin') || c.includes('quarantine')) {
+                        condBadgeCls = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                      } else if (c.includes('dönen') || c.includes('donen') || c.includes('iade')) {
+                        condBadgeCls = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+                      }
 
                       return (
                         <tr
@@ -612,6 +623,11 @@ export const StockExcelImportScreen: React.FC = () => {
                           </td>
                           <td className="py-3 px-3 text-slate-400">
                             {row.category}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border inline-block ${condBadgeCls}`}>
+                              {row.condition || 'Sağlam'}
+                            </span>
                           </td>
                           <td className="py-3 px-3">
                             <span className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px]">

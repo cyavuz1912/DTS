@@ -14,6 +14,7 @@ import { UserManagementScreen } from './components/users/UserManagementScreen';
 import { ReconciliationScreen } from './components/settings/ReconciliationScreen';
 import { StockExcelImportScreen } from './components/stock/StockExcelImportScreen';
 import { PackageApprovalScreen } from './components/packages/PackageApprovalScreen';
+import { TeknikInventoryScreen } from './components/teknik/TeknikInventoryScreen';
 
 const AppContent: React.FC = () => {
   const { currentUser, activeTab, setActiveTab, canAccess } = useWarehouse();
@@ -29,7 +30,7 @@ const AppContent: React.FC = () => {
       currentUser.role === 'DEPO'
         ? 'checkout'
         : currentUser.role === 'TEKNIK'
-        ? 'package_approvals'
+        ? 'teknik_inventory'
         : currentUser.role === 'ONOFIS'
         ? 'returns'
         : 'devices';
@@ -37,6 +38,8 @@ const AppContent: React.FC = () => {
     const effectiveTab = canAccess(activeTab) ? activeTab : defaultRoleTab;
 
     switch (effectiveTab) {
+      case 'teknik_inventory':
+        return <TeknikInventoryScreen />;
       case 'checkout':
         return <DeviceCheckout />;
       case 'package_approvals':
@@ -79,6 +82,18 @@ const AppContent: React.FC = () => {
       {/* Mobile Responsive Navigation Bar (Ön Ofis için tek ekran olduğundan alt bar gizlenir) */}
       {currentUser.role !== 'ONOFIS' && (
         <div className="md:hidden fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-50 px-2 py-2 flex justify-around items-center text-[10px] font-bold">
+          {canAccess('teknik_inventory') && (
+            <button
+              onClick={() => setActiveTab('teknik_inventory')}
+              className={`flex flex-col items-center gap-1 cursor-pointer ${
+                activeTab === 'teknik_inventory' ? 'text-amber-400 font-black' : 'text-slate-400'
+              }`}
+            >
+              <i className="fa-solid fa-toolbox text-sm"></i>
+              <span>Zimmetim</span>
+            </button>
+          )}
+
           {canAccess('checkout') && (
             <button
               onClick={() => setActiveTab('checkout')}

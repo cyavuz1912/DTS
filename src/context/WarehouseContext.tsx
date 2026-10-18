@@ -165,7 +165,20 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [devices, setDevices] = useState<Device[]>(() => {
     const saved = localStorage.getItem('depopro_wms_devices');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        const parsed: Device[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge parsed with INITIAL_DEVICES, giving precedence to initial conditions for demo/sample devices
+          const merged = deduplicateById([...INITIAL_DEVICES, ...parsed]);
+          return merged.map(d => {
+            const initMatch = INITIAL_DEVICES.find(i => i.id === d.id);
+            return {
+              ...d,
+              condition: d.condition || initMatch?.condition || 'Sağlam',
+            };
+          });
+        }
+      } catch (e) { /* ignore */ }
     }
     return INITIAL_DEVICES;
   });
@@ -310,7 +323,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const getDefaultTabForRole = (role: UserRole): string => {
     if (role === 'DEPO') return 'checkout';
-    if (role === 'TEKNIK') return 'package_approvals';
+    if (role === 'TEKNIK') return 'teknik_inventory';
     if (role === 'ONOFIS') return 'returns';
     if (role === 'BACKOFIS') return 'devices';
     return 'devices';
@@ -408,9 +421,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return ['devices', 'teams', 'secondary'].includes(tab);
     }
 
-    // TEKNIK: Arıza/onarım takip, iade ve teslim alma, cihaz sorgulama, malzeme onay
+    // TEKNIK: Üzerimdeki Cihazlar (Zimmetim), malzeme onay, iade takip, cihaz sorgulama, 2. donanım
     if (role === 'TEKNIK') {
-      return ['returns', 'devices', 'secondary', 'package_approvals'].includes(tab);
+      return ['teknik_inventory', 'package_approvals', 'returns', 'devices', 'secondary'].includes(tab);
     }
 
     return false;
@@ -612,6 +625,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return {
             ...device,
             status: newStatus,
+            technicalStatus: isTeknik ? 'INCELEMEDE' : device.technicalStatus,
             shelfLocation: isTeknik ? 'TEKNIK-RAF' : device.shelfLocation,
             assignedPersonnelId: pkg.targetPersonnelId,
             assignedPersonnelName: pkg.targetName,
@@ -1183,6 +1197,44 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const rawCategory = getValue('KATEGORİ', 'KATEGORI', 'CATEGORY', 'TÜR');
             const shelfLocation = getValue('RAF KONUMU', 'RAF', 'LOKASYON', 'SHELF', 'DEPO KONUMU') || 'GENEL-RAF';
             const notes = getValue('NOT', 'NOTLAR', 'AÇIKLAMA', 'NOTES', 'DESCRIPTION') || '';
+            const rawCondition = getValue(
+              'STATÜ',
+              'STATU',
+              'STATÜSÜ',
+              'STATUSU',
+              'DURUM',
+              'DURUMU',
+              'CİHAZ STATÜSÜ',
+              'CIHAZ STATUSU',
+              'CİHAZ STATÜ',
+              'CIHAZ STATU',
+              'FİZİKSEL DURUM',
+              'FIZIKSEL DURUM',
+              'STATUS',
+              'CONDITION',
+              'CİHAZ DURUMU',
+              'CIHAZ DURUMU'
+            );
+
+            const normalizeCondition = (val: string): 'Sağlam' | 'Arıza' | 'Karantina' | 'Sağlam Dönen' | string => {
+              const v = val.trim().toLowerCase();
+              if (!v) return 'Sağlam';
+              if (v.includes('arız') || v.includes('ariz') || v.includes('fault') || v.includes('defect') || v.includes('bozuk') || v.includes('hasar') || v.includes('tamir')) {
+                return 'Arıza';
+              }
+              if (v.includes('karantin') || v.includes('quarantine')) {
+                return 'Karantina';
+              }
+              if (v.includes('dönen') || v.includes('donen') || v.includes('dönüş') || v.includes('donus') || v.includes('iade')) {
+                return 'Sağlam Dönen';
+              }
+              if (v.includes('sağlam') || v.includes('saglam') || v.includes('ok') || v.includes('iyi') || v.includes('faal') || v.includes('çalışır')) {
+                return 'Sağlam';
+              }
+              return val.trim();
+            };
+
+            const condition = normalizeCondition(rawCondition);
 
             let category: any = 'Modem & Router';
             const lowerCat = rawCategory.toLowerCase();
@@ -1213,6 +1265,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 category,
                 shelfLocation,
                 status: 'DEPODA',
+                condition,
                 isSecondaryHardware: isSecondary,
                 notes,
                 actionType: 'INVALID',
@@ -1241,6 +1294,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               if (category && category !== existing.category) {
                 diffs.push(`Kategori: "${existing.category}" ➔ "${category}"`);
               }
+              if (condition && condition !== (existing.condition || 'Sağlam')) {
+                diffs.push(`Statü: "${existing.condition || 'Sağlam'}" ➔ "${condition}"`);
+              }
               if (existing.status !== 'DEPODA') {
                 diffs.push(`Durum: "${existing.status}" ➔ "DEPODA" (Depoya Alındı)`);
               }
@@ -1256,6 +1312,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   category: category || existing.category,
                   shelfLocation: shelfLocation || existing.shelfLocation,
                   status: 'DEPODA',
+                  condition,
                   isSecondaryHardware: isSecondary,
                   notes: notes || existing.notes,
                   actionType: 'UPDATE',
@@ -1273,6 +1330,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   category: existing.category,
                   shelfLocation: existing.shelfLocation,
                   status: existing.status,
+                  condition: existing.condition || 'Sağlam',
                   isSecondaryHardware: existing.isSecondaryHardware,
                   notes: existing.notes,
                   actionType: 'NO_CHANGE',
@@ -1291,10 +1349,11 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 category,
                 shelfLocation,
                 status: 'DEPODA',
+                condition,
                 isSecondaryHardware: isSecondary,
                 notes,
                 actionType: 'NEW',
-                changeDetails: ['Yeni cihaz olarak depo stoğuna eklenecek (Durum: DEPODA)'],
+                changeDetails: [`Yeni cihaz olarak depo stoğuna eklenecek (Statü: ${condition})`],
               });
             }
           });
@@ -1353,10 +1412,11 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         model: updateData.model || dev.model,
         category: updateData.category || dev.category,
         shelfLocation: updateData.shelfLocation || dev.shelfLocation,
-        status: 'DEPODA' as DeviceStatus,
-        assignedPersonnelId: null,
-        assignedPersonnelName: null,
-        assignedDate: null,
+        status: dev.status === 'TEKNIKTE' ? 'TEKNIKTE' : ('DEPODA' as DeviceStatus),
+        condition: updateData.condition !== undefined ? updateData.condition : (dev.condition || 'Sağlam'),
+        assignedPersonnelId: dev.status === 'TEKNIKTE' ? dev.assignedPersonnelId : null,
+        assignedPersonnelName: dev.status === 'TEKNIKTE' ? dev.assignedPersonnelName : null,
+        assignedDate: dev.status === 'TEKNIKTE' ? dev.assignedDate : null,
         notes: updateData.notes ? `${dev.notes ? dev.notes + ' | ' : ''}${updateData.notes}` : dev.notes,
         history: [newHist, ...dev.history],
       };
@@ -1374,16 +1434,17 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         category: r.category,
         isSecondaryHardware: r.isSecondaryHardware,
         status: 'DEPODA',
+        condition: r.condition || 'Sağlam',
         shelfLocation: r.shelfLocation,
         createdAt: dateStr.split(' ')[0],
-        notes: r.notes || 'Excel toplu stok yüklemesi ile eklendi.',
+        notes: r.notes || `Excel toplu stok yüklemesi ile eklendi (Statü: ${r.condition || 'Sağlam'}).`,
         history: [
           {
             id: `hist-${Date.now()}-${idx}`,
             date: dateStr,
             action: 'Excel ile Yeni Stok Girişi Yapıldı',
             performedBy: `${operatorName} (${operatorRole})`,
-            note: `Toplu Excel yüklemesi (${scanResult.fileName}) ile depoya kaydedildi.`,
+            note: `Toplu Excel yüklemesi (${scanResult.fileName}) ile depoya kaydedildi. Statü: ${r.condition || 'Sağlam'}.`,
           },
         ],
       };
@@ -1416,8 +1477,8 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-MOD-AX3',
         'MODEL': 'WS7100 V2',
         'KATEGORİ': 'Modem & Router',
+        'STATÜ': 'Sağlam',
         'RAF KONUMU': 'RAF-A01',
-        'DURUM': 'DEPODA',
         'AÇIKLAMA': 'Sıfır kutulu tedarik partisi',
       },
       {
@@ -1426,9 +1487,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-STB-4K',
         'MODEL': 'DIW7022',
         'KATEGORİ': 'Set-Top Box & TV',
-        'RAF KONUMU': 'RAF-B02',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Tedarikçi parti no: 442',
+        'STATÜ': 'Arıza',
+        'RAF KONUMU': 'TEKNIK-RAF',
+        'AÇIKLAMA': 'Görüntü çıkışı vermiyor, arızalı cihaz',
       },
       {
         'SERİ NUMARASI': 'SN-WIFI-2026-003',
@@ -1436,9 +1497,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-WIFI-EXT',
         'MODEL': 'RE305 V4',
         'KATEGORİ': 'Wi-Fi Güçlendirici',
-        'RAF KONUMU': 'RAF-C03',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Saha dağıtımı için hazır',
+        'STATÜ': 'Karantina',
+        'RAF KONUMU': 'KARANTINA-01',
+        'AÇIKLAMA': 'Parti bazlı test için karantinaya alındı',
       },
       {
         'SERİ NUMARASI': 'SN-TAB-2026-004',
@@ -1446,9 +1507,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-TAB-S01',
         'MODEL': 'SM-X110',
         'KATEGORİ': 'Tablet',
+        'STATÜ': 'Sağlam Dönen',
         'RAF KONUMU': 'RAF-D01',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Saha personeli teslimat kiti',
+        'AÇIKLAMA': 'Abonelik iptali sonrası depoya sağlam dönen cihaz',
       },
     ];
 
@@ -1460,9 +1521,8 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const createSampleStockExcelFile = (): File => {
     // Generates an in-memory sample Excel containing:
-    // - 3 existing devices with updated shelf locations / models (to demonstrate "Bilgi Güncelleme")
-    // - 7 brand new devices (to demonstrate "Yeni Stok Ekleme")
-    // - 1 existing unchanged device
+    // - 3 existing devices with updated shelf locations / models / statü
+    // - 5 brand new devices demonstrating all statü variations (Sağlam, Arıza, Karantina, Sağlam Dönen)
     const sampleRows = [
       {
         'SERİ NUMARASI': devices[0]?.serialNumber || 'SN-MOD-88201',
@@ -1470,8 +1530,8 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': devices[0]?.itemCode || 'KLM-MOD-01',
         'MODEL': 'H3600 V9.2 Güncel',
         'KATEGORİ': 'Modem & Router',
+        'STATÜ': 'Sağlam',
         'RAF KONUMU': 'RAF-YENI-A99',
-        'DURUM': 'DEPODA',
         'AÇIKLAMA': 'Yeni rafa taşındı & revizyon güncellendi',
       },
       {
@@ -1480,9 +1540,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': devices[1]?.itemCode || 'KLM-MOD-01',
         'MODEL': devices[1]?.model || 'H3600 V9',
         'KATEGORİ': 'Modem & Router',
+        'STATÜ': 'Sağlam Dönen',
         'RAF KONUMU': devices[1]?.shelfLocation || 'RAF-A02',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Stok kontrolü tamam',
+        'AÇIKLAMA': 'Saha iadesinden depoya sağlam dönen',
       },
       {
         'SERİ NUMARASI': 'SN-YENI-STOK-101',
@@ -1490,9 +1550,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-GPON-01',
         'MODEL': 'HG8245X6',
         'KATEGORİ': 'Modem & Router',
+        'STATÜ': 'Sağlam',
         'RAF KONUMU': 'RAF-GPON-01',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Merkez sevkiyat parti 8841',
+        'AÇIKLAMA': 'Merkez sevkiyat sıfır kutulu parti',
       },
       {
         'SERİ NUMARASI': 'SN-YENI-STOK-102',
@@ -1500,9 +1560,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-GPON-01',
         'MODEL': 'HG8245X6',
         'KATEGORİ': 'Modem & Router',
-        'RAF KONUMU': 'RAF-GPON-01',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Merkez sevkiyat parti 8841',
+        'STATÜ': 'Arıza',
+        'RAF KONUMU': 'TEKNIK-RAF',
+        'AÇIKLAMA': 'Güç ışığı yanmıyor, arızalı geldi',
       },
       {
         'SERİ NUMARASI': 'SN-YENI-STOK-103',
@@ -1510,9 +1570,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-STB-01',
         'MODEL': 'DIW7022',
         'KATEGORİ': 'Set-Top Box & TV',
-        'RAF KONUMU': 'RAF-STB-11',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Yeni parti kutulu',
+        'STATÜ': 'Karantina',
+        'RAF KONUMU': 'KARANTINA-02',
+        'AÇIKLAMA': 'Yazılım güvenlik kontrolü için karantinaya alındı',
       },
       {
         'SERİ NUMARASI': 'SN-YENI-STOK-104',
@@ -1520,9 +1580,9 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-WIFI-02',
         'MODEL': 'H196A V2',
         'KATEGORİ': 'Wi-Fi Güçlendirici',
+        'STATÜ': 'Sağlam Dönen',
         'RAF KONUMU': 'RAF-EXT-04',
-        'DURUM': 'DEPODA',
-        'AÇIKLAMA': 'Dağıtım stoğu',
+        'AÇIKLAMA': 'Depoya sağlam dönen cihaz',
       },
       {
         'SERİ NUMARASI': 'SN-YENI-STOK-105',
@@ -1530,8 +1590,8 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'KALEM KODU': 'KLM-TRM-01',
         'MODEL': 'EDA52 Android',
         'KATEGORİ': 'El Terminali',
+        'STATÜ': 'Sağlam',
         'RAF KONUMU': 'RAF-GUV-01',
-        'DURUM': 'DEPODA',
         'AÇIKLAMA': 'Saha sayım terminali',
       },
     ];

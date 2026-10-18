@@ -30,6 +30,7 @@ export const DeviceLookup: React.FC = () => {
   const [category, setCategory] = useState<DeviceCategory>('Modem & Router');
   const [shelfLocation, setShelfLocation] = useState('A-01-R1');
   const [macAddress, setMacAddress] = useState('');
+  const [condition, setCondition] = useState<string>('Sağlam');
   const [isSecondary, setIsSecondary] = useState(false);
 
   // Filtered devices list for fast selection
@@ -38,6 +39,7 @@ export const DeviceLookup: React.FC = () => {
       d.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.condition && d.condition.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (d.assignedPersonnelName && d.assignedPersonnelName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -57,6 +59,7 @@ export const DeviceLookup: React.FC = () => {
       category,
       isSecondaryHardware: isSecondary,
       status: 'DEPODA',
+      condition,
       shelfLocation,
       macAddress: macAddress || undefined,
     });
@@ -65,6 +68,7 @@ export const DeviceLookup: React.FC = () => {
     setName('');
     setModel('');
     setMacAddress('');
+    setCondition('Sağlam');
     setIsAddModalOpen(false);
   };
 
@@ -200,9 +204,22 @@ export const DeviceLookup: React.FC = () => {
                       <span className="font-mono text-xs font-black text-indigo-400">
                         {d.serialNumber}
                       </span>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusMeta.bg}`}>
-                        {statusMeta.label}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                          (d.condition || 'Sağlam') === 'Arıza'
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                            : (d.condition || 'Sağlam') === 'Karantina'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : (d.condition || 'Sağlam') === 'Sağlam Dönen'
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        }`}>
+                          {d.condition || 'Sağlam'}
+                        </span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusMeta.bg}`}>
+                          {statusMeta.label}
+                        </span>
+                      </div>
                     </div>
 
                     <h4 className="font-bold text-xs text-white truncate">{d.name}</h4>
@@ -225,9 +242,20 @@ export const DeviceLookup: React.FC = () => {
               {/* Dossier Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <span className="font-mono text-base font-black text-white bg-slate-950 border border-slate-700 px-3 py-1 rounded-xl">
                       {selectedDevice.serialNumber}
+                    </span>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                      (selectedDevice.condition || 'Sağlam') === 'Arıza'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        : (selectedDevice.condition || 'Sağlam') === 'Karantina'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        : (selectedDevice.condition || 'Sağlam') === 'Sağlam Dönen'
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    }`}>
+                      Statü: {selectedDevice.condition || 'Sağlam'}
                     </span>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${getStatusBadge(selectedDevice.status).bg}`}>
                       {getStatusBadge(selectedDevice.status).label}
@@ -416,6 +444,20 @@ export const DeviceLookup: React.FC = () => {
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Cihaz Statüsü / Kondisyon</label>
+                <select
+                  value={condition}
+                  onChange={e => setCondition(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-semibold"
+                >
+                  <option value="Sağlam">🟢 Sağlam (Kullanıma Hazır)</option>
+                  <option value="Arıza">🔴 Arıza (Arızalı / Onarım Gerekiyor)</option>
+                  <option value="Karantina">🟠 Karantina (İnceleme / Test Bekliyor)</option>
+                  <option value="Sağlam Dönen">🔵 Sağlam Dönen (İadeden Sağlam Gelen)</option>
+                </select>
               </div>
 
               <div>

@@ -34,6 +34,15 @@ export interface DeviceHistoryItem {
   note?: string;
 }
 
+export type TechnicalWorkStatus =
+  | 'INCELEMEDE'
+  | 'ARIZA_TESPITI'
+  | 'PARCA_BEKLIYOR'
+  | 'TEST_ASAMASINDA'
+  | 'ONARIM_TAMAMLANDI';
+
+export type DeviceCondition = 'Sağlam' | 'Arıza' | 'Karantina' | 'Sağlam Dönen';
+
 export interface Device {
   id: string;
   serialNumber: string;
@@ -43,6 +52,9 @@ export interface Device {
   category: DeviceCategory;
   isSecondaryHardware: boolean; // Tablet, Kamera, Wi-Fi Güçlendirici gibi yan donanımlar
   status: DeviceStatus;
+  condition?: DeviceCondition | string; // Excel'den gelen statü: Sağlam, Arıza, Karantina, Sağlam Dönen
+  technicalStatus?: TechnicalWorkStatus;
+  technicalNotes?: string;
   assignedPersonnelId?: string | null;
   assignedPersonnelName?: string | null;
   assignedDate?: string | null;
@@ -141,6 +153,7 @@ export interface StockExcelRow {
   category: DeviceCategory;
   shelfLocation: string;
   status: DeviceStatus;
+  condition?: DeviceCondition | string;
   isSecondaryHardware: boolean;
   notes?: string;
   actionType: 'NEW' | 'UPDATE' | 'NO_CHANGE' | 'INVALID';

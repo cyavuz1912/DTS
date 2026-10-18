@@ -10,16 +10,39 @@ import {
   FileSpreadsheet,
   Lock,
   Package,
+  Wrench,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, canAccess, currentUser, returnRequests, packages } = useWarehouse();
+  const { activeTab, setActiveTab, canAccess, currentUser, returnRequests, packages, devices } = useWarehouse();
 
   if (!currentUser) return null;
 
   const pendingReturnsCount = returnRequests.filter(r => r.status === 'BEKLEMEDE').length;
 
   const menuItems = [
+    {
+      id: 'teknik_inventory',
+      label: 'Üzerimdeki Cihazlar',
+      subLabel: 'Zimmetim & Tamir Masam',
+      icon: 'fa-solid fa-toolbox',
+      lucideIcon: Wrench,
+      badge: (() => {
+        if (currentUser.role === 'TEKNIK') {
+          const myCount = devices.filter(
+            d =>
+              (d.assignedPersonnelId === currentUser.id ||
+                (d.assignedPersonnelName &&
+                  d.assignedPersonnelName.toLowerCase().includes(currentUser.name.toLowerCase())) ||
+                (d.status === 'TEKNIKTE' && (d.assignedPersonnelId === 'usr-teknik' || !d.assignedPersonnelId))) &&
+              d.status === 'TEKNIKTE'
+          ).length;
+          return myCount > 0 ? `${myCount} Cihaz` : null;
+        }
+        return null;
+      })(),
+      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+    },
     {
       id: 'checkout',
       label: 'Malzeme Çıkış / Teslim',
